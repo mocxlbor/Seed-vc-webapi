@@ -1,12 +1,20 @@
 FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
+ENV TZ=Africa/Lagos
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y git wget ffmpeg curl tzdata && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata && \
+    rm -rf /var/lib/apt/lists/*
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    wget \
-    ffmpeg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y \
+#     git \
+#     wget \
+#     ffmpeg \
+#     curl \
+#     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -17,17 +25,18 @@ COPY . /app
 # Install Python dependencies
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir \
-    fastapi \
-    uvicorn \
-    python-multipart \
-    websockets \
-    numpy \
-    torchaudio \
-    soundfile \
-    yaml \
-    aiortc \
-    aiohttp \
-    pydantic
+        fastapi \
+        uvicorn \
+        python-multipart \
+        websockets \
+        numpy \
+        torchaudio \
+        soundfile \
+        PyYAML \
+        aiortc \
+        aiohttp \
+        pydantic
+
 
 # Set environment variables
 ENV PYTHONPATH=/app
