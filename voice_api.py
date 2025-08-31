@@ -214,9 +214,17 @@ def custom_infer(model_set,
         reference_wav_tensor = torch.from_numpy(reference_wav).float().to(device)
 
         ori_waves_16k = torchaudio.functional.resample(reference_wav_tensor.float(), sr, 16000)
-        S_ori = semantic_fn(ori_waves_16k.unsqueeze(0))
+        # Ensure correct shape for semantic_fn
+        if len(ori_waves_16k.shape) == 1:
+            ori_waves_16k = ori_waves_16k.unsqueeze(0)
+        elif len(ori_waves_16k.shape) > 2:
+            ori_waves_16k = ori_waves_16k.squeeze()
+            if len(ori_waves_16k.shape) == 1:
+                ori_waves_16k = ori_waves_16k.unsqueeze(0)
+        
+        S_ori = semantic_fn(ori_waves_16k.float())
         feat2 = torchaudio.compliance.kaldi.fbank(
-            ori_waves_16k.unsqueeze(0).float(), num_mel_bins=80, dither=0, sample_frequency=16000
+            ori_waves_16k.float(), num_mel_bins=80, dither=0, sample_frequency=16000
         )
         feat2 = feat2 - feat2.mean(dim=0, keepdim=True)
         style2 = campplus_model(feat2.unsqueeze(0))
@@ -230,7 +238,15 @@ def custom_infer(model_set,
         reference_wav_name = new_reference_wav_name
 
     converted_waves_16k = input_wav_res
-    S_alt = semantic_fn(converted_waves_16k.unsqueeze(0).float())
+    # Ensure correct shape for semantic_fn
+    if len(converted_waves_16k.shape) == 1:
+        converted_waves_16k = converted_waves_16k.unsqueeze(0)
+    elif len(converted_waves_16k.shape) > 2:
+        converted_waves_16k = converted_waves_16k.squeeze()
+        if len(converted_waves_16k.shape) == 1:
+            converted_waves_16k = converted_waves_16k.unsqueeze(0)
+    
+    S_alt = semantic_fn(converted_waves_16k.float())
     
     ce_dit_frame_difference = int(ce_dit_difference * 50)
     S_alt = S_alt[:, ce_dit_frame_difference:]
