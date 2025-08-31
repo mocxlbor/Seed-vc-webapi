@@ -227,7 +227,7 @@ def custom_infer(model_set,
             ori_waves_16k.float(), num_mel_bins=80, dither=0, sample_frequency=16000
         )
         feat2 = feat2 - feat2.mean(dim=0, keepdim=True)
-        style2 = campplus_model(feat2.unsqueeze(0))
+        style2 = campplus_model(feat2.unsqueeze(0).float())
 
         mel2 = to_mel(reference_wav_tensor.unsqueeze(0).float())
         target2_lengths = torch.LongTensor([mel2.size(2)]).to(mel2.device)
