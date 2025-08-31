@@ -211,17 +211,17 @@ def custom_infer(model_set,
     if prompt_condition is None or reference_wav_name != new_reference_wav_name or prompt_len != max_prompt_length:
         prompt_len = max_prompt_length
         reference_wav = reference_wav[:int(sr * prompt_len)]
-        reference_wav_tensor = torch.from_numpy(reference_wav).to(device)
+        reference_wav_tensor = torch.from_numpy(reference_wav).float().to(device)
 
-        ori_waves_16k = torchaudio.functional.resample(reference_wav_tensor, sr, 16000)
+        ori_waves_16k = torchaudio.functional.resample(reference_wav_tensor.float(), sr, 16000)
         S_ori = semantic_fn(ori_waves_16k.unsqueeze(0))
         feat2 = torchaudio.compliance.kaldi.fbank(
-            ori_waves_16k.unsqueeze(0), num_mel_bins=80, dither=0, sample_frequency=16000
+            ori_waves_16k.unsqueeze(0).float(), num_mel_bins=80, dither=0, sample_frequency=16000
         )
         feat2 = feat2 - feat2.mean(dim=0, keepdim=True)
         style2 = campplus_model(feat2.unsqueeze(0))
 
-        mel2 = to_mel(reference_wav_tensor.unsqueeze(0))
+        mel2 = to_mel(reference_wav_tensor.unsqueeze(0).float())
         target2_lengths = torch.LongTensor([mel2.size(2)]).to(mel2.device)
         prompt_condition = model.length_regulator(
             S_ori, ylens=target2_lengths, n_quantizers=3, f0=None
@@ -230,7 +230,7 @@ def custom_infer(model_set,
         reference_wav_name = new_reference_wav_name
 
     converted_waves_16k = input_wav_res
-    S_alt = semantic_fn(converted_waves_16k.unsqueeze(0))
+    S_alt = semantic_fn(converted_waves_16k.unsqueeze(0).float())
     
     ce_dit_frame_difference = int(ce_dit_difference * 50)
     S_alt = S_alt[:, ce_dit_frame_difference:]
@@ -519,7 +519,7 @@ async def handle_audio(websocket: WebSocket, data: dict, session: SessionState):
             })
             return
 
-        input_wav = torch.from_numpy(audio_array).to(device)
+        input_wav = torch.from_numpy(audio_array).float().to(device)
         
         # Get ce_dit_difference from request or use default
         ce_dit_difference = data.get('ce_dit_difference', 2.0)
@@ -558,7 +558,7 @@ async def run_vc_inference(input_wav: torch.Tensor,
         raise ValueError("Reference audio not set")
     
     sr = model_set[-1]["sampling_rate"]
-    input_wav_16k = torchaudio.functional.resample(input_wav, sr, 16000)
+    input_wav_16k = torchaudio.functional.resample(input_wav.float(), sr, 16000)
     
     block_frame_16k = 320
     skip_head = int(ce_dit_difference * 50)
