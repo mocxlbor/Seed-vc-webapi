@@ -38,6 +38,14 @@ model_set = None
 fp16 = False
 pcs = set()
 
+# Global variables for custom_infer function
+prompt_condition = None
+mel2 = None
+style2 = None
+reference_wav_name = ""
+prompt_len = 3.0
+ce_dit_difference = 2.0
+
 class SessionState:
     def __init__(self):
         self.reference_wav = None
@@ -179,6 +187,11 @@ def custom_infer(model_set,
     global reference_wav_name
     global prompt_len
     global ce_dit_difference
+    
+    # Initialize ce_dit_difference if not set
+    if 'ce_dit_difference' not in globals():
+        global ce_dit_difference
+        ce_dit_difference = 2.0
     
     (
         model,
@@ -508,11 +521,15 @@ async def handle_audio(websocket: WebSocket, data: dict, session: SessionState):
 
         input_wav = torch.from_numpy(audio_array).to(device)
         
+        # Get ce_dit_difference from request or use default
+        ce_dit_difference = data.get('ce_dit_difference', 2.0)
+        
         output = await run_vc_inference(
             input_wav,
             session,
             diffusion_steps=data.get('diffusion_steps', 10),
-            inference_cfg_rate=data.get('inference_cfg_rate', 0.7)
+            inference_cfg_rate=data.get('inference_cfg_rate', 0.7),
+            ce_dit_difference=ce_dit_difference
         )
         
         if output is not None and output.numel() > 0:
@@ -532,7 +549,8 @@ async def handle_audio(websocket: WebSocket, data: dict, session: SessionState):
 async def run_vc_inference(input_wav: torch.Tensor, 
                           session: SessionState,
                           diffusion_steps: int = 10,
-                          inference_cfg_rate: float = 0.7) -> Optional[torch.Tensor]:
+                          inference_cfg_rate: float = 0.7,
+                          ce_dit_difference: float = 2.0) -> Optional[torch.Tensor]:
     """Run voice conversion inference"""
     global model_set
     
@@ -543,7 +561,7 @@ async def run_vc_inference(input_wav: torch.Tensor,
     input_wav_16k = torchaudio.functional.resample(input_wav, sr, 16000)
     
     block_frame_16k = 320
-    skip_head = int(session.ce_dit_difference * 50)
+    skip_head = int(ce_dit_difference * 50)
     skip_tail = skip_head
     return_length = input_wav_16k.shape[0] // 320 - skip_head - skip_tail
     
@@ -560,7 +578,7 @@ async def run_vc_inference(input_wav: torch.Tensor,
             diffusion_steps=diffusion_steps,
             inference_cfg_rate=inference_cfg_rate,
             max_prompt_length=session.prompt_len,
-            cd_difference=session.ce_dit_difference
+            cd_difference=ce_dit_difference
         )
     
     return output.squeeze(0)
